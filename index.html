@@ -7,7 +7,11 @@
 	<style>
 		:root {
 			--bg: #111111;
-			--point: #e8e8e8;
+			/* One color per letter of the small word, in word order. */
+			--letter-0: #ff6b6b;
+			--letter-1: #ffb347;
+			--letter-2: #6bd968;
+			--letter-3: #5aa9ff;
 		}
 		html, body {
 			margin: 0;
@@ -25,17 +29,18 @@
 		import { buildRules, iterate, wordSize } from './ifs.js';
 
 		const WORD = 'SPAM';
-		const ITERATIONS = 200000;
+		// Scaled by devicePixelRatio squared, so a high-density screen gets the
+		// same number of points per pixel as a standard one.
+		const ITERATIONS_PER_CSS_PIXEL_RATIO = 1000000;
 		const BURN_IN = 20;
+		const BRIGHTNESS_PERCENTILE = 0.9;
 		const MARGIN_RATIO = 0.05;
 		const RESIZE_DEBOUNCE_MS = 150;
 
 		const canvas = document.getElementById('fractal');
 		const context = canvas.getContext('2d');
+		const rules = buildRules(WORD);
 		const { width: wordWidth, height: wordHeight } = wordSize(WORD);
-
-		// The points do not depend on the canvas size, so compute them one time.
-		const points = iterate(buildRules(WORD), ITERATIONS, BURN_IN, Math.random);
 
 		function cssColor(name) {
 			return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -46,6 +51,14 @@
 			context.fillStyle = color;
 			const hex = context.fillStyle;
 			return [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+		}
+
+		function letterColors() {
+			const colors = [];
+			for (let i = 0; i < WORD.length; i++) {
+				colors.push(toRgb(cssColor(`--letter-${i % 4}`)));
+			}
+			return colors;
 		}
 
 		function draw() {
@@ -61,24 +74,52 @@
 
 			const margin = cssMargin * ratio;
 			const scale = cssScale * ratio;
+			const pixelCount = canvas.width * canvas.height;
+			const colors = letterColors();
 
-			context.fillStyle = cssColor('--bg');
-			context.fillRect(0, 0, canvas.width, canvas.height);
+			// Each pixel keeps a hit count and the summed color of its hits, so
+			// busy pixels get brighter and mixed pixels get a blended color.
+			const hits = new Uint32Array(pixelCount);
+			const red = new Uint32Array(pixelCount);
+			const green = new Uint32Array(pixelCount);
+			const blue = new Uint32Array(pixelCount);
 
-			const image = context.getImageData(0, 0, canvas.width, canvas.height);
-			const [red, green, blue] = toRgb(cssColor('--point'));
-
-			for (const { x, y } of points) {
+			const iterations = Math.round(ITERATIONS_PER_CSS_PIXEL_RATIO * ratio * ratio);
+			iterate(rules, iterations, BURN_IN, Math.random, (x, y, letter) => {
 				const px = Math.floor(margin + x * scale);
 				// Canvas y points down, and the word's y points up.
 				const py = Math.floor(canvas.height - margin - y * scale);
 				if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) {
-					continue;
+					return;
 				}
-				const offset = (py * canvas.width + px) * 4;
-				image.data[offset] = red;
-				image.data[offset + 1] = green;
-				image.data[offset + 2] = blue;
+				const index = py * canvas.width + px;
+				const [r, g, b] = colors[letter];
+				hits[index]++;
+				red[index] += r;
+				green[index] += g;
+				blue[index] += b;
+			});
+
+			// Overlapping strokes collect far more hits than the rest of the word.
+			// Scaling brightness to a high percentile instead of the maximum keeps
+			// those few pixels from dimming everything else.
+			const litCounts = hits.filter((count) => count > 0).sort();
+			const referenceHits = litCounts[Math.floor(litCounts.length * BRIGHTNESS_PERCENTILE)] || 1;
+
+			const [bgRed, bgGreen, bgBlue] = toRgb(cssColor('--bg'));
+			const image = context.createImageData(canvas.width, canvas.height);
+			const logReference = Math.log1p(referenceHits);
+			for (let i = 0; i < pixelCount; i++) {
+				const offset = i * 4;
+				const count = hits[i];
+				// A log scale keeps lightly hit pixels visible next to dense ones.
+				const brightness = count === 0 ? 0 : Math.min(1, Math.log1p(count) / logReference);
+				const r = count === 0 ? bgRed : red[i] / count;
+				const g = count === 0 ? bgGreen : green[i] / count;
+				const b = count === 0 ? bgBlue : blue[i] / count;
+				image.data[offset] = bgRed + (r - bgRed) * brightness;
+				image.data[offset + 1] = bgGreen + (g - bgGreen) * brightness;
+				image.data[offset + 2] = bgBlue + (b - bgBlue) * brightness;
 				image.data[offset + 3] = 255;
 			}
 

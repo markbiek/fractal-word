@@ -121,16 +121,46 @@ test('applyRule maps the origin to the rule offset', () => {
 	assert.deepEqual(applyRule(rule, { x: 4, y: 2 }), { x: 4, y: 4 });
 });
 
-test('iterate returns count minus burnIn points', () => {
-	const points = iterate(buildRules('SPAM'), 1000, 20, seededRandom(1));
+function collect(rules, count, burnIn, rand) {
+	const points = [];
+	iterate(rules, count, burnIn, rand, (x, y, letter) => {
+		points.push({ x, y, letter });
+	});
+	return points;
+}
+
+test('buildRules tags each rule with its letter index', () => {
+	const rules = buildRules('SPAM');
+	assert.equal(rules[0].letter, 0);
+	assert.equal(rules[rules.length - 1].letter, 3);
+	assert.deepEqual(
+		[...new Set(rules.map((rule) => rule.letter))],
+		[0, 1, 2, 3]
+	);
+});
+
+test('iterate visits count minus burnIn points', () => {
+	const points = collect(buildRules('SPAM'), 1000, 20, seededRandom(1));
 	assert.equal(points.length, 980);
 });
 
 test('every point from iterate lies inside the word box', () => {
 	const { width, height } = wordSize('SPAM');
-	const points = iterate(buildRules('SPAM'), 5000, 20, seededRandom(42));
+	const points = collect(buildRules('SPAM'), 5000, 20, seededRandom(42));
 	for (const { x, y } of points) {
 		assert.ok(x >= -EPSILON && x <= width + EPSILON);
 		assert.ok(y >= -EPSILON && y <= height + EPSILON);
 	}
+});
+
+test('iterate reports the letter of the rule applied before the last one', () => {
+	// Alternate between the first rule (an S stroke) and the last rule (an M stroke).
+	let calls = 0;
+	const alternate = () => (calls++ % 2 === 0 ? 0 : 0.999999999);
+	const points = collect(buildRules('SPAM'), 6, 2, alternate);
+	// Steps 2..5 apply S, M, S, M, so the rule before each is M, S, M, S.
+	assert.deepEqual(
+		points.map((point) => point.letter),
+		[3, 0, 3, 0]
+	);
 });

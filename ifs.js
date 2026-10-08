@@ -48,7 +48,7 @@ function strokesForWord(word) {
 		}
 		const offset = index * (LETTER_WIDTH + LETTER_GAP);
 		for (const stroke of letterStrokes) {
-			strokes.push({ ...stroke, x: stroke.x + offset });
+			strokes.push({ ...stroke, x: stroke.x + offset, letter: index });
 		}
 	});
 	return strokes;
@@ -99,6 +99,7 @@ export function buildRules(word) {
 			: horizontalRule(stroke, width, height);
 		rule.p = (stroke.w * stroke.h) / totalArea;
 		rule.stroke = stroke;
+		rule.letter = stroke.letter;
 
 		// A rule that does not shrink makes the chaos game diverge.
 		if (scaleFactor(rule) >= 1) {
@@ -127,15 +128,19 @@ export function applyRule(rule, point) {
 	};
 }
 
+// The last rule applied picks the big stroke a point sits in. The rule
+// before it picks the stroke of the small word inside that stroke, so its
+// letter tells the page which small letter the point belongs to.
 // The first points have not reached the fractal yet, so burnIn skips them.
-export function iterate(rules, count, burnIn, rand) {
-	const points = [];
+export function iterate(rules, count, burnIn, rand, visit) {
 	let point = { x: 0, y: 0 };
+	let lastRule = rules[0];
 	for (let i = 0; i < count; i++) {
-		point = applyRule(pickRule(rules, rand()), point);
+		const previousRule = lastRule;
+		lastRule = pickRule(rules, rand());
+		point = applyRule(lastRule, point);
 		if (i >= burnIn) {
-			points.push(point);
+			visit(point.x, point.y, previousRule.letter);
 		}
 	}
-	return points;
 }
