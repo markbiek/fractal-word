@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	LETTERS,
+	letterWidth,
 	wordSize,
 	buildRules,
 	scaleFactor,
@@ -19,8 +20,27 @@ function mapPoint(rule, x, y) {
 	};
 }
 
-test('wordSize of SPAM is 15 by 5', () => {
-	assert.deepEqual(wordSize('SPAM'), { width: 15, height: 5 });
+// Left and right x of each letter of SPAM. M is 5 units wide.
+const SPAM_LETTER_BOXES = [
+	[0, 3],
+	[4, 7],
+	[8, 11],
+	[12, 17],
+];
+
+function isDiagonal(stroke) {
+	return 'from' in stroke;
+}
+
+test('M is 5 units wide and the other letters are 3', () => {
+	assert.equal(letterWidth('M'), 5);
+	assert.equal(letterWidth('S'), 3);
+	assert.equal(letterWidth('P'), 3);
+	assert.equal(letterWidth('A'), 3);
+});
+
+test('wordSize of SPAM is 17 by 5', () => {
+	assert.deepEqual(wordSize('SPAM'), { width: 17, height: 5 });
 });
 
 test('buildRules returns one rule per stroke of SPAM', () => {
@@ -32,9 +52,10 @@ test('buildRules returns one rule per stroke of SPAM', () => {
 	assert.equal(buildRules('SPAM').length, 17);
 });
 
-test('each rule maps the word box onto its stroke', () => {
+test('each axis rule maps the word box onto its stroke', () => {
 	const { width, height } = wordSize('SPAM');
-	for (const rule of buildRules('SPAM')) {
+	const axisRules = buildRules('SPAM').filter((rule) => !isDiagonal(rule.stroke));
+	for (const rule of axisRules) {
 		const corners = [
 			mapPoint(rule, 0, 0),
 			mapPoint(rule, width, 0),
@@ -65,15 +86,52 @@ test('a vertical rule rotates the word counter-clockwise', () => {
 	assert.ok(Math.abs(farCorner.y - 5) < EPSILON);
 });
 
+test('a diagonal rule maps the word middle line onto the stroke centerline', () => {
+	const { width, height } = wordSize('SPAM');
+	const diagonalRules = buildRules('SPAM').filter((rule) => isDiagonal(rule.stroke));
+	assert.equal(diagonalRules.length, 2);
+	for (const rule of diagonalRules) {
+		const { from, to, thickness } = rule.stroke;
+		const start = mapPoint(rule, 0, height / 2);
+		const end = mapPoint(rule, width, height / 2);
+		assert.ok(Math.abs(start.x - from[0]) < EPSILON);
+		assert.ok(Math.abs(start.y - from[1]) < EPSILON);
+		assert.ok(Math.abs(end.x - to[0]) < EPSILON);
+		assert.ok(Math.abs(end.y - to[1]) < EPSILON);
+		// The word's bottom edge sits half a thickness to the right of the
+		// direction of travel, and its top edge half a thickness to the left.
+		const bottom = mapPoint(rule, 0, 0);
+		const top = mapPoint(rule, 0, height);
+		assert.ok(Math.abs(Math.hypot(bottom.x - top.x, bottom.y - top.y) - thickness) < EPSILON);
+		const directionX = to[0] - from[0];
+		const directionY = to[1] - from[1];
+		const cross = directionX * (top.y - bottom.y) - directionY * (top.x - bottom.x);
+		assert.ok(cross > 0);
+	}
+});
+
+test('every rule keeps the word inside its letter box', () => {
+	const { width, height } = wordSize('SPAM');
+	for (const rule of buildRules('SPAM')) {
+		const [left, right] = SPAM_LETTER_BOXES[rule.letter];
+		for (const [x, y] of [[0, 0], [width, 0], [0, height], [width, height]]) {
+			const corner = mapPoint(rule, x, y);
+			assert.ok(corner.x >= left - EPSILON && corner.x <= right + EPSILON);
+			assert.ok(corner.y >= -EPSILON && corner.y <= height + EPSILON);
+		}
+	}
+});
+
 test('every rule shrinks', () => {
 	for (const rule of buildRules('SPAM')) {
 		assert.ok(scaleFactor(rule) < 1);
 	}
 });
 
-test('the largest scale factor for SPAM is one third', () => {
+test('the largest scale factor for SPAM is 5/17', () => {
+	// The 1x5 posts stretch the 17-unit word along 5 units.
 	const largest = Math.max(...buildRules('SPAM').map(scaleFactor));
-	assert.ok(Math.abs(largest - 1 / 3) < EPSILON);
+	assert.ok(Math.abs(largest - 5 / 17) < EPSILON);
 });
 
 test('probabilities sum to 1', () => {
@@ -92,12 +150,13 @@ test('a long post gets a higher probability than a short post', () => {
 	assert.ok(leftPostOfP.p > rightPostOfP.p);
 });
 
-test('no two strokes of a letter overlap', () => {
+test('no two axis strokes of a letter overlap', () => {
 	// Overlapping strokes stack two copies of the word on the same cells,
-	// which blends their colors into mud.
+	// which blends their colors into mud. Diagonals have no grid cells, so
+	// only the axis strokes are checked.
 	for (const [letter, strokes] of Object.entries(LETTERS)) {
 		const covered = new Set();
-		for (const { x, y, w, h } of strokes) {
+		for (const { x, y, w, h } of strokes.filter((stroke) => !isDiagonal(stroke))) {
 			for (let cx = x; cx < x + w; cx++) {
 				for (let cy = y; cy < y + h; cy++) {
 					const cell = `${cx},${cy}`;
