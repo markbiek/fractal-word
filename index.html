@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Fractal Word</title>
+	<style>
+		:root {
+			--bg: #111111;
+			--point: #e8e8e8;
+		}
+		html, body {
+			margin: 0;
+			background: var(--bg);
+		}
+		canvas {
+			display: block;
+			width: 100%;
+		}
+	</style>
+</head>
+<body>
+	<canvas id="fractal"></canvas>
+	<script type="module">
+		import { buildRules, iterate, wordSize } from './ifs.js';
+
+		const WORD = 'SPAM';
+		const ITERATIONS = 200000;
+		const BURN_IN = 20;
+		const MARGIN_RATIO = 0.05;
+		const RESIZE_DEBOUNCE_MS = 150;
+
+		const canvas = document.getElementById('fractal');
+		const context = canvas.getContext('2d');
+		const { width: wordWidth, height: wordHeight } = wordSize(WORD);
+
+		// The points do not depend on the canvas size, so compute them one time.
+		const points = iterate(buildRules(WORD), ITERATIONS, BURN_IN, Math.random);
+
+		function cssColor(name) {
+			return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+		}
+
+		// The canvas normalizes an opaque fillStyle to #rrggbb.
+		function toRgb(color) {
+			context.fillStyle = color;
+			const hex = context.fillStyle;
+			return [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+		}
+
+		function draw() {
+			const ratio = window.devicePixelRatio || 1;
+			const cssWidth = canvas.clientWidth;
+			const cssMargin = cssWidth * MARGIN_RATIO;
+			const cssScale = (cssWidth - 2 * cssMargin) / wordWidth;
+			const cssHeight = wordHeight * cssScale + 2 * cssMargin;
+
+			canvas.style.height = `${cssHeight}px`;
+			canvas.width = Math.round(cssWidth * ratio);
+			canvas.height = Math.round(cssHeight * ratio);
+
+			const margin = cssMargin * ratio;
+			const scale = cssScale * ratio;
+
+			context.fillStyle = cssColor('--bg');
+			context.fillRect(0, 0, canvas.width, canvas.height);
+
+			const image = context.getImageData(0, 0, canvas.width, canvas.height);
+			const [red, green, blue] = toRgb(cssColor('--point'));
+
+			for (const { x, y } of points) {
+				const px = Math.floor(margin + x * scale);
+				// Canvas y points down, and the word's y points up.
+				const py = Math.floor(canvas.height - margin - y * scale);
+				if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) {
+					continue;
+				}
+				const offset = (py * canvas.width + px) * 4;
+				image.data[offset] = red;
+				image.data[offset + 1] = green;
+				image.data[offset + 2] = blue;
+				image.data[offset + 3] = 255;
+			}
+
+			context.putImageData(image, 0, 0);
+		}
+
+		let resizeTimer;
+		window.addEventListener('resize', () => {
+			clearTimeout(resizeTimer);
+			resizeTimer = setTimeout(draw, RESIZE_DEBOUNCE_MS);
+		});
+
+		draw();
+	</script>
+</body>
+</html>
