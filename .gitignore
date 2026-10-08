@@ -1,6 +1,4 @@
 node_modules
-.spacefast/state.json
+.spacefast/
 /.spacefast-*
-.spacefast/.spacefast-*
-.spacefast/.space-link-*.tmp
 __spacefast/
