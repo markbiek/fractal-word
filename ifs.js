@@ -7,27 +7,78 @@ export const LETTER_GAP = 1;
 // `from` to `to`.
 //
 // No two axis strokes of a letter cover the same cell. Overlapping strokes stack
-// two copies of the word in one place and blend their colors. The cost is
-// that P and A need a 1x1 crossbar, which holds only a squashed copy.
+// two copies of the word in one place and blend their colors. Some shapes
+// cannot avoid a 1x1 piece, such as the crossbars of A, H and P, and those hold
+// only a squashed copy. Diagonals that meet, as in the V of M, overlap a little
+// at the joint.
+//
+// Every diagonal runs left to right, so its copy of the word stays upright.
 export const LETTERS = {
-	S: [
-		{ x: 0, y: 4, w: 3, h: 1 },
-		{ x: 0, y: 2, w: 1, h: 2 },
-		{ x: 1, y: 2, w: 2, h: 1 },
-		{ x: 2, y: 0, w: 1, h: 2 },
-		{ x: 0, y: 0, w: 2, h: 1 },
-	],
-	P: [
-		{ x: 0, y: 0, w: 1, h: 5 },
-		{ x: 1, y: 4, w: 2, h: 1 },
-		{ x: 2, y: 2, w: 1, h: 2 },
-		{ x: 1, y: 2, w: 1, h: 1 },
-	],
 	A: [
 		{ x: 0, y: 4, w: 3, h: 1 },
 		{ x: 0, y: 0, w: 1, h: 4 },
 		{ x: 2, y: 0, w: 1, h: 4 },
 		{ x: 1, y: 2, w: 1, h: 1 },
+	],
+	B: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ x: 1, y: 4, w: 2, h: 1 },
+		{ x: 1, y: 2, w: 2, h: 1 },
+		{ x: 1, y: 0, w: 2, h: 1 },
+		{ x: 2, y: 3, w: 1, h: 1 },
+		{ x: 2, y: 1, w: 1, h: 1 },
+	],
+	C: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 1, w: 1, h: 3 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+	],
+	D: [
+		{ x: 0, y: 4, w: 2, h: 1 },
+		{ x: 0, y: 1, w: 1, h: 3 },
+		{ x: 2, y: 1, w: 1, h: 3 },
+		{ x: 0, y: 0, w: 2, h: 1 },
+	],
+	E: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ x: 1, y: 4, w: 2, h: 1 },
+		{ x: 1, y: 2, w: 2, h: 1 },
+		{ x: 1, y: 0, w: 2, h: 1 },
+	],
+	F: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ x: 1, y: 4, w: 2, h: 1 },
+		{ x: 1, y: 2, w: 2, h: 1 },
+	],
+	G: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 1, w: 1, h: 3 },
+		{ x: 2, y: 1, w: 1, h: 2 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+	],
+	H: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ x: 2, y: 0, w: 1, h: 5 },
+		{ x: 1, y: 2, w: 1, h: 1 },
+	],
+	I: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 1, y: 1, w: 1, h: 3 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+	],
+	J: [
+		{ x: 2, y: 1, w: 1, h: 4 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+		{ x: 0, y: 1, w: 1, h: 1 },
+	],
+	K: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ from: [1.5, 2.5], to: [2.5, 4.5], thickness: 1 },
+		{ from: [1.5, 2.5], to: [2.5, 0.5], thickness: 1 },
+	],
+	L: [
+		{ x: 0, y: 1, w: 1, h: 4 },
+		{ x: 0, y: 0, w: 3, h: 1 },
 	],
 	M: [
 		{ x: 0, y: 0, w: 1, h: 5 },
@@ -35,10 +86,82 @@ export const LETTERS = {
 		{ from: [2.5, 1.5], to: [3.5, 4.5], thickness: 1 },
 		{ x: 4, y: 0, w: 1, h: 5 },
 	],
+	N: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ from: [1.5, 4.5], to: [2.5, 0.5], thickness: 1 },
+		{ x: 3, y: 0, w: 1, h: 5 },
+	],
+	O: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 1, w: 1, h: 3 },
+		{ x: 2, y: 1, w: 1, h: 3 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+	],
+	P: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ x: 1, y: 4, w: 2, h: 1 },
+		{ x: 2, y: 2, w: 1, h: 2 },
+		{ x: 1, y: 2, w: 1, h: 1 },
+	],
+	Q: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 2, w: 1, h: 2 },
+		{ x: 2, y: 2, w: 1, h: 2 },
+		{ x: 0, y: 1, w: 3, h: 1 },
+		{ x: 2, y: 0, w: 1, h: 1 },
+	],
+	R: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ x: 1, y: 4, w: 2, h: 1 },
+		{ x: 2, y: 2, w: 1, h: 2 },
+		{ x: 1, y: 2, w: 1, h: 1 },
+		{ from: [1.5, 1.6], to: [2.55, 0.4], thickness: 1 },
+	],
+	S: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 2, w: 1, h: 2 },
+		{ x: 1, y: 2, w: 2, h: 1 },
+		{ x: 2, y: 0, w: 1, h: 2 },
+		{ x: 0, y: 0, w: 2, h: 1 },
+	],
+	T: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 1, y: 0, w: 1, h: 4 },
+	],
+	U: [
+		{ x: 0, y: 1, w: 1, h: 4 },
+		{ x: 2, y: 1, w: 1, h: 4 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+	],
+	V: [
+		{ from: [0.5, 4.5], to: [1.5, 0.5], thickness: 1 },
+		{ from: [1.5, 0.5], to: [2.5, 4.5], thickness: 1 },
+	],
+	W: [
+		{ x: 0, y: 0, w: 1, h: 5 },
+		{ from: [1.5, 0.5], to: [2.5, 3.5], thickness: 1 },
+		{ from: [2.5, 3.5], to: [3.5, 0.5], thickness: 1 },
+		{ x: 4, y: 0, w: 1, h: 5 },
+	],
+	X: [
+		{ from: [0.5, 4.5], to: [2.5, 0.5], thickness: 1 },
+		{ from: [0.5, 0.5], to: [2.5, 4.5], thickness: 1 },
+	],
+	Y: [
+		{ from: [0.5, 4.5], to: [1.5, 2.5], thickness: 1 },
+		{ from: [1.5, 2.5], to: [2.5, 4.5], thickness: 1 },
+		{ x: 1, y: 0, w: 1, h: 2 },
+	],
+	Z: [
+		{ x: 0, y: 4, w: 3, h: 1 },
+		{ from: [0.6, 1.4], to: [2.4, 3.6], thickness: 1 },
+		{ x: 0, y: 0, w: 3, h: 1 },
+	],
 };
 
-// M needs room for the V between its posts.
-const LETTER_WIDTHS = { M: 5 };
+// M and W need room for the V between their posts. N needs room for its
+// diagonal.
+const LETTER_WIDTHS = { M: 5, N: 4, W: 5 };
 
 export function letterWidth(letter) {
 	return LETTER_WIDTHS[letter] ?? LETTER_WIDTH;

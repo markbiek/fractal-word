@@ -12,6 +12,14 @@
 			--letter-1: #ffb347;
 			--letter-2: #6bd968;
 			--letter-3: #5aa9ff;
+			--letter-4: #b58cff;
+			--letter-5: #ffe066;
+			--letter-6: #4dd4c6;
+			--letter-7: #ff7ac8;
+			--text: #e8e8e8;
+			--muted: #8a8a8a;
+			--field: #1c1c1c;
+			--field-border: #333333;
 		}
 		html, body {
 			margin: 0;
@@ -21,14 +29,50 @@
 			display: block;
 			width: 100%;
 		}
+		canvas[hidden] {
+			display: none;
+		}
+		form {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 8px;
+			padding: 24px 16px 0;
+			font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		}
+		input {
+			width: 12ch;
+			padding: 8px 12px;
+			font: inherit;
+			font-size: 24px;
+			letter-spacing: 0.2em;
+			text-align: center;
+			text-transform: uppercase;
+			color: var(--text);
+			background: var(--field);
+			border: 1px solid var(--field-border);
+			border-radius: 6px;
+		}
+		.hint {
+			margin: 0;
+			min-height: 1.2em;
+			font-size: 14px;
+			color: var(--muted);
+		}
 	</style>
 </head>
 <body>
+	<form id="word-form">
+		<input id="word" aria-label="Word to draw" autocomplete="off" autocapitalize="characters" spellcheck="false">
+		<p id="hint" class="hint"></p>
+	</form>
 	<canvas id="fractal"></canvas>
 	<script type="module">
 		import { buildRules, iterate, wordSize } from './ifs.js';
+		import { normalizeWord, MIN_WORD_LENGTH, MAX_WORD_LENGTH } from './word.js';
 
-		const WORD = 'SPAM';
+		const DEFAULT_WORD = 'SPAM';
+		const TYPING_DEBOUNCE_MS = 300;
 		// Scaled by devicePixelRatio squared, so a high-density screen gets the
 		// same number of points per pixel as a standard one.
 		const ITERATIONS_PER_CSS_PIXEL_RATIO = 1000000;
@@ -39,8 +83,12 @@
 
 		const canvas = document.getElementById('fractal');
 		const context = canvas.getContext('2d');
-		const rules = buildRules(WORD);
-		const { width: wordWidth, height: wordHeight } = wordSize(WORD);
+		const form = document.getElementById('word-form');
+		const input = document.getElementById('word');
+		const hint = document.getElementById('hint');
+
+		let word = '';
+		let rules = [];
 
 		function cssColor(name) {
 			return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -55,24 +103,42 @@
 
 		function letterColors() {
 			const colors = [];
-			for (let i = 0; i < WORD.length; i++) {
-				colors.push(toRgb(cssColor(`--letter-${i % 4}`)));
+			for (let i = 0; i < word.length; i++) {
+				colors.push(toRgb(cssColor(`--letter-${i % MAX_WORD_LENGTH}`)));
 			}
 			return colors;
 		}
 
 		function draw() {
+			const isDrawable = word.length >= MIN_WORD_LENGTH;
+			canvas.hidden = !isDrawable;
+			hint.textContent = isDrawable
+				? `Up to ${MAX_WORD_LENGTH} letters`
+				: `Type at least ${MIN_WORD_LENGTH} letters`;
+			if (!isDrawable) {
+				return;
+			}
+
+			const { width: wordWidth, height: wordHeight } = wordSize(word);
 			const ratio = window.devicePixelRatio || 1;
 			const cssWidth = canvas.clientWidth;
 			const cssMargin = cssWidth * MARGIN_RATIO;
-			const cssScale = (cssWidth - 2 * cssMargin) / wordWidth;
+			// A short word is tall for its width, so the height can limit the
+			// scale too. The drawing then centers horizontally.
+			const availableHeight = window.innerHeight - form.offsetHeight;
+			const cssScale = Math.max(0, Math.min(
+				(cssWidth - 2 * cssMargin) / wordWidth,
+				(availableHeight - 2 * cssMargin) / wordHeight
+			));
 			const cssHeight = wordHeight * cssScale + 2 * cssMargin;
+			const cssOffsetX = (cssWidth - wordWidth * cssScale) / 2;
 
 			canvas.style.height = `${cssHeight}px`;
 			canvas.width = Math.round(cssWidth * ratio);
 			canvas.height = Math.round(cssHeight * ratio);
 
 			const margin = cssMargin * ratio;
+			const offsetX = cssOffsetX * ratio;
 			const scale = cssScale * ratio;
 			const pixelCount = canvas.width * canvas.height;
 			const colors = letterColors();
@@ -86,7 +152,7 @@
 
 			const iterations = Math.round(ITERATIONS_PER_CSS_PIXEL_RATIO * ratio * ratio);
 			iterate(rules, iterations, BURN_IN, Math.random, (x, y, letter) => {
-				const px = Math.floor(margin + x * scale);
+				const px = Math.floor(offsetX + x * scale);
 				// Canvas y points down, and the word's y points up.
 				const py = Math.floor(canvas.height - margin - y * scale);
 				if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) {
@@ -126,13 +192,45 @@
 			context.putImageData(image, 0, 0);
 		}
 
+		// The address keeps the current word, so a link opens the same drawing.
+		function setWord(newWord) {
+			word = newWord;
+			rules = word.length >= MIN_WORD_LENGTH ? buildRules(word) : [];
+
+			const url = new URL(window.location.href);
+			url.searchParams.set('word', word);
+			history.replaceState(null, '', url);
+
+			draw();
+		}
+
+		let typingTimer;
+		input.addEventListener('input', () => {
+			const normalized = normalizeWord(input.value);
+			if (input.value !== normalized) {
+				input.value = normalized;
+			}
+			clearTimeout(typingTimer);
+			typingTimer = setTimeout(() => setWord(normalized), TYPING_DEBOUNCE_MS);
+		});
+
+		// Enter draws at once instead of waiting for the debounce.
+		form.addEventListener('submit', (event) => {
+			event.preventDefault();
+			clearTimeout(typingTimer);
+			setWord(normalizeWord(input.value));
+		});
+
 		let resizeTimer;
 		window.addEventListener('resize', () => {
 			clearTimeout(resizeTimer);
 			resizeTimer = setTimeout(draw, RESIZE_DEBOUNCE_MS);
 		});
 
-		draw();
+		const requested = new URLSearchParams(window.location.search).get('word');
+		const initialWord = requested === null ? DEFAULT_WORD : normalizeWord(requested);
+		input.value = initialWord;
+		setWord(initialWord);
 	</script>
 </body>
 </html>

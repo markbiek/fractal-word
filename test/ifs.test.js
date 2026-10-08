@@ -168,8 +168,46 @@ test('no two axis strokes of a letter overlap', () => {
 	}
 });
 
+test('every letter from A to Z has stroke data', () => {
+	for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+		assert.ok(LETTERS[letter]?.length > 0, `${letter} has no strokes`);
+	}
+});
+
+test('every letter keeps its copies inside its own box', () => {
+	for (const letter of Object.keys(LETTERS)) {
+		// A doubled letter, because a one-letter word does not shrink.
+		const word = letter + letter;
+		const { width, height } = wordSize(word);
+		const firstLetterRules = buildRules(word).filter((rule) => rule.letter === 0);
+		for (const rule of firstLetterRules) {
+			for (const [x, y] of [[0, 0], [width, 0], [0, height], [width, height]]) {
+				const corner = mapPoint(rule, x, y);
+				assert.ok(
+					corner.x >= -EPSILON && corner.x <= letterWidth(letter) + EPSILON,
+					`${letter} stroke ${JSON.stringify(rule.stroke)} leaves the box`
+				);
+				assert.ok(corner.y >= -EPSILON && corner.y <= height + EPSILON);
+			}
+		}
+	}
+});
+
+test('every diagonal reads left to right', () => {
+	// A diagonal that runs right to left puts its copy upside down.
+	for (const [letter, strokes] of Object.entries(LETTERS)) {
+		for (const stroke of strokes.filter(isDiagonal)) {
+			assert.ok(stroke.to[0] > stroke.from[0], `${letter} diagonal runs right to left`);
+		}
+	}
+});
+
+test('buildRules throws for a one-letter word', () => {
+	assert.throws(() => buildRules('I'), /does not shrink/);
+});
+
 test('buildRules throws for a letter with no stroke data', () => {
-	assert.throws(() => buildRules('SPQM'), /No stroke data for letter "Q"/);
+	assert.throws(() => buildRules('SP1M'), /No stroke data for letter "1"/);
 });
 
 // A small linear congruential generator, so the test points are repeatable.
