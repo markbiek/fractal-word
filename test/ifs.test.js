@@ -81,15 +81,32 @@ test('probabilities sum to 1', () => {
 	assert.ok(Math.abs(total - 1) < EPSILON);
 });
 
-test('a long bar gets a higher probability than a short post', () => {
+test('a long post gets a higher probability than a short post', () => {
 	const rules = buildRules('SPAM');
 	const leftPostOfP = rules.find(
 		(rule) => rule.stroke.x === 4 && rule.stroke.h === 5
 	);
 	const rightPostOfP = rules.find(
-		(rule) => rule.stroke.x === 6 && rule.stroke.h === 3
+		(rule) => rule.stroke.x === 6 && rule.stroke.h === 2
 	);
 	assert.ok(leftPostOfP.p > rightPostOfP.p);
+});
+
+test('no two strokes of a letter overlap', () => {
+	// Overlapping strokes stack two copies of the word on the same cells,
+	// which blends their colors into mud.
+	for (const [letter, strokes] of Object.entries(LETTERS)) {
+		const covered = new Set();
+		for (const { x, y, w, h } of strokes) {
+			for (let cx = x; cx < x + w; cx++) {
+				for (let cy = y; cy < y + h; cy++) {
+					const cell = `${cx},${cy}`;
+					assert.ok(!covered.has(cell), `${letter} covers ${cell} twice`);
+					covered.add(cell);
+				}
+			}
+		}
+	}
 });
 
 test('buildRules throws for a letter with no stroke data', () => {

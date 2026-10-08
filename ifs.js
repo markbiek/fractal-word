@@ -2,33 +2,34 @@ export const LETTER_WIDTH = 3;
 export const LETTER_HEIGHT = 5;
 export const LETTER_GAP = 1;
 
-// Posts overlap the bars they connect. Longer posts give the rotated
-// copies more room, so the nested word is easier to read.
+// No two strokes of a letter cover the same cell. Overlapping strokes stack
+// two copies of the word in one place and blend their colors. The cost is
+// that P and A need a 1x1 crossbar, which holds only a squashed copy.
 export const LETTERS = {
 	S: [
-		{ x: 0, y: 0, w: 3, h: 1 },
-		{ x: 2, y: 0, w: 1, h: 3 },
-		{ x: 0, y: 2, w: 3, h: 1 },
-		{ x: 0, y: 2, w: 1, h: 3 },
 		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 2, w: 1, h: 2 },
+		{ x: 1, y: 2, w: 2, h: 1 },
+		{ x: 2, y: 0, w: 1, h: 2 },
+		{ x: 0, y: 0, w: 2, h: 1 },
 	],
 	P: [
 		{ x: 0, y: 0, w: 1, h: 5 },
-		{ x: 0, y: 2, w: 3, h: 1 },
-		{ x: 2, y: 2, w: 1, h: 3 },
-		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 1, y: 4, w: 2, h: 1 },
+		{ x: 2, y: 2, w: 1, h: 2 },
+		{ x: 1, y: 2, w: 1, h: 1 },
 	],
 	A: [
-		{ x: 0, y: 0, w: 1, h: 5 },
-		{ x: 2, y: 0, w: 1, h: 5 },
-		{ x: 0, y: 2, w: 3, h: 1 },
 		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 0, w: 1, h: 4 },
+		{ x: 2, y: 0, w: 1, h: 4 },
+		{ x: 1, y: 2, w: 1, h: 1 },
 	],
 	M: [
-		{ x: 0, y: 0, w: 1, h: 5 },
-		{ x: 1, y: 2, w: 1, h: 3 },
-		{ x: 2, y: 0, w: 1, h: 5 },
 		{ x: 0, y: 4, w: 3, h: 1 },
+		{ x: 0, y: 0, w: 1, h: 4 },
+		{ x: 1, y: 2, w: 1, h: 2 },
+		{ x: 2, y: 0, w: 1, h: 4 },
 	],
 };
 
