@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LETTERS, wordSize, buildRules, scaleFactor } from '../ifs.js';
+import {
+	LETTERS,
+	wordSize,
+	buildRules,
+	scaleFactor,
+	pickRule,
+	applyRule,
+	iterate,
+} from '../ifs.js';
 
 const EPSILON = 1e-9;
 
@@ -86,4 +94,43 @@ test('a long bar gets a higher probability than a short post', () => {
 
 test('buildRules throws for a letter with no stroke data', () => {
 	assert.throws(() => buildRules('SPQM'), /No stroke data for letter "Q"/);
+});
+
+// A small linear congruential generator, so the test points are repeatable.
+function seededRandom(seed) {
+	let state = seed;
+	return () => {
+		state = (state * 1664525 + 1013904223) % 4294967296;
+		return state / 4294967296;
+	};
+}
+
+test('pickRule with r = 0 returns the first rule', () => {
+	const rules = buildRules('SPAM');
+	assert.equal(pickRule(rules, 0), rules[0]);
+});
+
+test('pickRule with r just below 1 returns the last rule', () => {
+	const rules = buildRules('SPAM');
+	assert.equal(pickRule(rules, 0.999999999), rules[rules.length - 1]);
+});
+
+test('applyRule maps the origin to the rule offset', () => {
+	const rule = { a: 0.5, b: 0, c: 0, d: 0.5, e: 2, f: 3 };
+	assert.deepEqual(applyRule(rule, { x: 0, y: 0 }), { x: 2, y: 3 });
+	assert.deepEqual(applyRule(rule, { x: 4, y: 2 }), { x: 4, y: 4 });
+});
+
+test('iterate returns count minus burnIn points', () => {
+	const points = iterate(buildRules('SPAM'), 1000, 20, seededRandom(1));
+	assert.equal(points.length, 980);
+});
+
+test('every point from iterate lies inside the word box', () => {
+	const { width, height } = wordSize('SPAM');
+	const points = iterate(buildRules('SPAM'), 5000, 20, seededRandom(42));
+	for (const { x, y } of points) {
+		assert.ok(x >= -EPSILON && x <= width + EPSILON);
+		assert.ok(y >= -EPSILON && y <= height + EPSILON);
+	}
 });

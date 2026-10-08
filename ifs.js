@@ -107,3 +107,35 @@ export function buildRules(word) {
 		return rule;
 	});
 }
+
+export function pickRule(rules, r) {
+	let cumulative = 0;
+	for (const rule of rules) {
+		cumulative += rule.p;
+		if (r < cumulative) {
+			return rule;
+		}
+	}
+	// Floating-point rounding can leave the sum just below 1.
+	return rules[rules.length - 1];
+}
+
+export function applyRule(rule, point) {
+	return {
+		x: rule.a * point.x + rule.b * point.y + rule.e,
+		y: rule.c * point.x + rule.d * point.y + rule.f,
+	};
+}
+
+// The first points have not reached the fractal yet, so burnIn skips them.
+export function iterate(rules, count, burnIn, rand) {
+	const points = [];
+	let point = { x: 0, y: 0 };
+	for (let i = 0; i < count; i++) {
+		point = applyRule(pickRule(rules, rand()), point);
+		if (i >= burnIn) {
+			points.push(point);
+		}
+	}
+	return points;
+}
