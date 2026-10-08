@@ -176,7 +176,7 @@ test('every letter from A to Z has stroke data', () => {
 
 test('every letter keeps its copies inside its own box', () => {
 	for (const letter of Object.keys(LETTERS)) {
-		// A doubled letter, because a one-letter word does not shrink.
+		// A doubled letter, so the test also checks the offset of the second.
 		const word = letter + letter;
 		const { width, height } = wordSize(word);
 		const firstLetterRules = buildRules(word).filter((rule) => rule.letter === 0);
@@ -202,8 +202,70 @@ test('every diagonal reads left to right', () => {
 	}
 });
 
-test('buildRules throws for a one-letter word', () => {
-	assert.throws(() => buildRules('I'), /does not shrink/);
+test('every letter can be drawn as a one-letter word', () => {
+	// A full-width bar splits into several copies, so even a single letter shrinks.
+	for (const letter of Object.keys(LETTERS)) {
+		assert.ok(buildRules(letter).every((rule) => scaleFactor(rule) < 1), letter);
+	}
+});
+
+// How much a rule squashes the word: its largest scale over its smallest.
+// 1 means the copy keeps the word's proportions.
+function squash(rule) {
+	const largest = scaleFactor(rule);
+	const smallest = Math.abs(rule.a * rule.d - rule.b * rule.c) / largest;
+	return largest / smallest;
+}
+
+test('a long stroke in a short word holds several copies of the word', () => {
+	// YZ is 7 by 5, so Z's 3x1 top bar holds two 1.5x1 copies. Z starts at x = 4.
+	const topBarCopies = buildRules('YZ')
+		.filter((rule) => rule.letter === 1 && !isDiagonal(rule.stroke) && rule.stroke.y === 4)
+		.map((rule) => rule.stroke);
+	assert.deepEqual(topBarCopies, [
+		{ x: 4, y: 4, w: 1.5, h: 1, letter: 1 },
+		{ x: 5.5, y: 4, w: 1.5, h: 1, letter: 1 },
+	]);
+});
+
+test('every stroke of SPAM holds a single copy', () => {
+	assert.equal(buildRules('SPAM').length, 17);
+});
+
+test('copies of a vertical stroke stay rotated', () => {
+	// The 1x5 posts of HI split into copies, and each copy still reads upward.
+	const postRules = buildRules('HI').filter(
+		(rule) => rule.letter === 0 && rule.stroke.h > rule.stroke.w
+	);
+	assert.ok(postRules.length > 2);
+	for (const rule of postRules) {
+		assert.equal(rule.a, 0);
+		assert.ok(rule.b < 0);
+	}
+});
+
+test('copies of a diagonal stroke follow its centerline', () => {
+	// The left diagonal of Y runs from (0.5, 4.5) to (1.5, 2.5) and splits in two.
+	const pieces = buildRules('YZ')
+		.filter((rule) => rule.letter === 0 && isDiagonal(rule.stroke))
+		.map((rule) => rule.stroke)
+		.filter((stroke) => stroke.from[0] < 1.5);
+	assert.equal(pieces.length, 2);
+	assert.deepEqual(pieces[0].from, [0.5, 4.5]);
+	assert.deepEqual(pieces[0].to, [1, 3.5]);
+	assert.deepEqual(pieces[1].from, [1, 3.5]);
+	assert.deepEqual(pieces[1].to, [1.5, 2.5]);
+});
+
+test('no copy in a two-letter word is squashed by more than 1.5', () => {
+	for (const rule of buildRules('YZ')) {
+		assert.ok(squash(rule) <= 1.5 + EPSILON, `${JSON.stringify(rule.stroke)} squashes ${squash(rule)}`);
+	}
+});
+
+test('probabilities still sum to 1 when strokes split', () => {
+	const total = buildRules('YZ').reduce((sum, rule) => sum + rule.p, 0);
+	assert.ok(Math.abs(total - 1) < EPSILON);
 });
 
 test('buildRules throws for a letter with no stroke data', () => {

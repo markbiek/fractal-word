@@ -23,6 +23,6 @@ test('normalizeWord returns an empty string for no letters', () => {
 	assert.equal(normalizeWord('123 !?'), '');
 });
 
-test('the minimum word length is 2', () => {
-	assert.equal(MIN_WORD_LENGTH, 2);
+test('the minimum word length is 1', () => {
+	assert.equal(MIN_WORD_LENGTH, 1);
 });

@@ -267,30 +267,82 @@ export function scaleFactor({ a, b, c, d }) {
 	return Math.sqrt((sumOfSquares + discriminant) / 2);
 }
 
-function ruleForStroke(stroke, width, height) {
+function strokeKind(stroke) {
 	if (isDiagonal(stroke)) {
-		return diagonalRule(stroke, width, height);
+		return 'diagonal';
 	}
-	if (stroke.h > stroke.w) {
-		return verticalRule(stroke, width, height);
-	}
-	return horizontalRule(stroke, width, height);
+	return stroke.h > stroke.w ? 'vertical' : 'horizontal';
 }
+
+function strokeLengthAndThickness(stroke, kind) {
+	if (kind === 'diagonal') {
+		const length = Math.hypot(stroke.to[0] - stroke.from[0], stroke.to[1] - stroke.from[1]);
+		return { length, thickness: stroke.thickness };
+	}
+	if (kind === 'vertical') {
+		return { length: stroke.h, thickness: stroke.w };
+	}
+	return { length: stroke.w, thickness: stroke.h };
+}
+
+// One copy stretched along a long stroke squashes the word, and the squash
+// compounds at every level until the drawing looks like dust. Short words
+// suffer most. Several copies side by side keep each copy close to the word's
+// own proportions. For SPAM every stroke comes out at one copy.
+function copyCount(stroke, kind, width, height) {
+	const { length, thickness } = strokeLengthAndThickness(stroke, kind);
+	const stretch = length / width / (thickness / height);
+	return Math.max(1, Math.round(stretch));
+}
+
+function splitStroke(stroke, kind, count) {
+	const pieces = [];
+	for (let i = 0; i < count; i++) {
+		const start = i / count;
+		const end = (i + 1) / count;
+		if (kind === 'diagonal') {
+			const dx = stroke.to[0] - stroke.from[0];
+			const dy = stroke.to[1] - stroke.from[1];
+			pieces.push({
+				...stroke,
+				from: [stroke.from[0] + dx * start, stroke.from[1] + dy * start],
+				to: [stroke.from[0] + dx * end, stroke.from[1] + dy * end],
+			});
+		} else if (kind === 'vertical') {
+			pieces.push({ ...stroke, y: stroke.y + stroke.h * start, h: stroke.h / count });
+		} else {
+			pieces.push({ ...stroke, x: stroke.x + stroke.w * start, w: stroke.w / count });
+		}
+	}
+	return pieces;
+}
+
+// The kind comes from the whole stroke, so a short piece of a post still
+// gets the rotated rule.
+const RULE_BUILDERS = {
+	diagonal: diagonalRule,
+	vertical: verticalRule,
+	horizontal: horizontalRule,
+};
 
 export function buildRules(word) {
 	const { width, height } = wordSize(word);
-	const strokes = strokesForWord(word);
-	const totalArea = strokes.reduce((sum, stroke) => sum + strokeArea(stroke), 0);
+	const pieces = strokesForWord(word).flatMap((stroke) => {
+		const kind = strokeKind(stroke);
+		const count = copyCount(stroke, kind, width, height);
+		return splitStroke(stroke, kind, count).map((piece) => ({ piece, kind }));
+	});
+	const totalArea = pieces.reduce((sum, { piece }) => sum + strokeArea(piece), 0);
 
-	return strokes.map((stroke) => {
-		const rule = ruleForStroke(stroke, width, height);
-		rule.p = strokeArea(stroke) / totalArea;
-		rule.stroke = stroke;
-		rule.letter = stroke.letter;
+	return pieces.map(({ piece, kind }) => {
+		const rule = RULE_BUILDERS[kind](piece, width, height);
+		rule.p = strokeArea(piece) / totalArea;
+		rule.stroke = piece;
+		rule.letter = piece.letter;
 
 		// A rule that does not shrink makes the chaos game diverge.
 		if (scaleFactor(rule) >= 1) {
-			throw new Error(`Rule for stroke ${JSON.stringify(stroke)} does not shrink`);
+			throw new Error(`Rule for stroke ${JSON.stringify(piece)} does not shrink`);
 		}
 		return rule;
 	});
